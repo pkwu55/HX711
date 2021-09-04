@@ -222,27 +222,66 @@ bool HX711::wait_ready_timeout(unsigned long timeout, unsigned long delay_ms) {
 }
 
 long HX711::read_average(byte times) {
-	long sum = 0;
+	long sum = 0; 
+	long max_val, min_val;
 	for (byte i = 0; i < times; i++) {
-		sum += read();
+		long temp = read();
+		 if (i == 0){
+			 max_val = temp;
+			 min_val = temp;
+		 }
+		 else if (i > 1){
+			 if (temp > max_val) max_val = temp;
+			 if (temp < min_val) min_val = temp;
+		 }
+		 sum += temp;
+	}
+	
+	if (times > 3){
+		sum = sum - max_val - min_val;
+		times = times - 2;
+	}
+	sum = sum/times;
+
 		// Probably will do no harm on AVR but will feed the Watchdog Timer (WDT) on ESP.
 		// https://github.com/bogde/HX711/issues/73
 		delay(0);
-	}
-	return sum / times;
+	
+    return sum;
 }
 
 double HX711::get_value(byte times) {
-	return read_average(times) - OFFSET;
+	return (read_average(times) - OFFSET);
 }
 
 float HX711::get_units(byte times) {
-	return get_value(times) / SCALE;
+	double val = get_value(times);
+	float corr = 0;
+	if (abs( val/ SCALE) < 5){
+		corr = 1.065;
+	} else if (abs(val / SCALE) < 50){
+		corr = 1;
+	} else if (abs(val / SCALE) < 100){
+		corr = 0.5;
+	} else if (abs(val /SCALE) < 200) {
+		corr = 0.11;
+	} else corr = -0.1; 
+	return ((val / SCALE) + LAMBDA * corr );
+	// upwards correctction of 0.21 for values under 50g 
 }
 
 void HX711::tare(byte times) {
 	double sum = read_average(times);
 	set_offset(sum);
+	while(true){
+	   long value = read_average(times/2);
+	   if (abs(value - OFFSET)/ SCALE > 0.005 )
+	   {
+         set_offset( (OFFSET + value)/2 );
+		 value = get_value(times/2);
+	   }  
+	   break;
+    }
 }
 
 void HX711::set_scale(float scale) {
@@ -268,4 +307,8 @@ void HX711::power_down() {
 
 void HX711::power_up() {
 	digitalWrite(PD_SCK, LOW);
+}
+
+void HX711::set_lambda(float lambda){
+	LAMBDA = lambda;
 }

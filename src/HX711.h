@@ -24,6 +24,7 @@ class HX711
 		byte GAIN;		// amplification factor
 		long OFFSET = 0;	// used for tare weight
 		float SCALE = 1;	// used to return weight in grams, kg, ounces, whatever
+		float LAMBDA = 0;   // added parameter for calibration
 
 	public:
 
@@ -86,6 +87,10 @@ class HX711
 
 		// wakes up the chip after power down mode
 		void power_up();
+
+		void set_lambda(float);
+		// set lambda value
+
 };
 
 #endif /* HX711_h */
